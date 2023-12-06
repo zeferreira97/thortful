@@ -1,10 +1,14 @@
 package com.thortful.services;
 
+import com.thortful.Exceptions.ResourceNotFoundException;
 import com.thortful.clients.CountriesFeignClient;
 
+import com.thortful.clients.PokemonFeignClient;
 import com.thortful.models.CountryAPI.CreateCountryRequestParams;
 import com.thortful.models.CountryAPI.SummarizedCountryResponse;
+import com.thortful.models.CountryAPI.UpdateCountryRequestParams;
 import com.thortful.models.base.BaseCountry;
+import com.thortful.models.pokemonApi.Pokemon;
 import com.thortful.models.sql.Countries;
 import com.thortful.models.sql.CountryRepository;
 import jakarta.validation.ValidationException;
@@ -17,8 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import static com.thortful.utils.IsoUtil.isValidISOCountry;
+import static java.util.Objects.isNull;
 
 
 @Service
@@ -33,10 +39,17 @@ public class DefaultService implements CountriesService {
     @Autowired
     private CountryRepository countryRepository;
 
+    @Autowired
+    private PokemonFeignClient pokemonFeignClient;
+
     @Override
     public ResponseEntity<Countries> createNewSummarizedCountryObject (CreateCountryRequestParams params){
 
-        Countries countries = new Countries();
+        if(isNull(countryRepository.findByName(params.getName()))) {
+
+            int min = 1;
+            int max = 1017;
+            Countries countries = new Countries();
 
             countries.setName(params.getName());
             countries.setFlag(params.getFlag());
@@ -49,13 +62,22 @@ public class DefaultService implements CountriesService {
             countries.setIso(params.getIso());
 
 
-        if(!isValidISOCountry(countries.getIso())){
-            throw new ValidationException("The inserted country is not valid!");
+            Pokemon poke = pokemonFeignClient.getPokemon((int) Math.floor(Math.random() * (max - min + 1) + min));
+
+            countries.setPokemon(poke.getName());
+
+
+            if (!isValidISOCountry(countries.getIso())) {
+                throw new ValidationException("The inserted country is not valid!");
+            }
+
+
+            countryRepository.save(countries);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(countries);
+        }else{
+            throw new ValidationException("Country already exists!");
         }
-
-        countryRepository.save(countries);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(countries);
     }
 
 
@@ -95,4 +117,44 @@ public class DefaultService implements CountriesService {
             throw new ValidationException();
         }
     }
+
+
+    @Override
+    public List<Countries> getAllCountries()throws ResourceNotFoundException {
+
+
+        try {
+            List<Countries> countries = new ArrayList<>();
+
+            countryRepository.findAll().forEach(countries::add);
+
+            if (countries.isEmpty()) {
+                return countries;
+            }
+            return countries;
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("No vehicles were found!");
+        }
+    }
+
+    @Override
+    public ResponseEntity<Countries> updateCountry(UpdateCountryRequestParams params, String name){
+
+        Countries country = countryRepository.findByName(name);
+
+        if(!isNull(country)){
+
+            country.setPopulation(params.getPopulation());
+            country.setLanguages(params.getLanguages());
+            country.setCapital(params.getCapital());
+            country.setCurrencies(params.getCurrencies());
+
+            countryRepository.save(country);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(country);
+        }else{
+            throw new ValidationException("Country doesn't exist!");
+        }
+    }
+
 }

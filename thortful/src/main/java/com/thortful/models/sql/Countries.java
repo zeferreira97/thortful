@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Data
 @Entity
@@ -49,4 +48,7 @@ public class Countries {
 
     @Column(name = "iso", nullable = false, columnDefinition = "varchar(255) default 'Teste'")
     private String iso;
+
+    @Column(name = "pokemon", columnDefinition = "varchar(255) default 'Teste'")
+    private String pokemon;
 }
